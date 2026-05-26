@@ -378,7 +378,7 @@ function argoType() {
 }
 
 // 获取临时隧道domain
-async function extractDomainsold() {
+async function extractDomains() {
   let argoDomain;
 
   if (ARGO_AUTH && ARGO_DOMAIN) {
@@ -482,81 +482,6 @@ trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${argoDomain}&fp=firefox&typ
       resolve(subTxt);
       }, 2000);
     });
-  }
-}
-
-  // 获取临时隧道domain
-async function extractDomains() {
-  let argoDomain;
-  if (ARGO_AUTH && ARGO_DOMAIN) {
-    argoDomain = ARGO_DOMAIN;
-    console.log('ARGO_DOMAIN:', argoDomain);
-    await generateLinks(argoDomain);
-  } else {
-    try {
-      const bootLogPath = path.join(FILE_PATH, 'boot.log');
-      let fileContent = null;
-
-      // 【修改点1】：增加等待机制，等待 boot.log 文件生成，最多等待 15 秒
-      for (let i = 0; i < 15; i++) {
-        if (fs.existsSync(bootLogPath)) {
-          fileContent = fs.readFileSync(bootLogPath, 'utf-8');
-          break;
-        }
-        console.log(`Waiting for boot.log to be created... (${i+1}s)`);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-
-      // 如果等待15秒后还是没有文件，fileContent 为 null，后续会走入重试逻辑
-      const lines = fileContent ? fileContent.split('\n') : [];
-      const argoDomains = [];
-      
-      lines.forEach((line) => {
-        const domainMatch = line.match(/https?:\/\/([^ ]*trycloudflare\.com)\/?/);
-        if (domainMatch) {
-          const domain = domainMatch[1];
-          argoDomains.push(domain);
-        }
-      });
-
-      if (argoDomains.length > 0) {
-        argoDomain = argoDomains[0];
-        console.log('ArgoDomain:', argoDomain);
-        await generateLinks(argoDomain);
-      } else {
-        console.log('ArgoDomain not found, re-running bot to obtain ArgoDomain');
-        
-        // 【修改点2】：删除前先判断文件是否存在，防止 unlinkSync 抛出 ENOENT 异常
-        if (fs.existsSync(bootLogPath)) {
-          fs.unlinkSync(bootLogPath);
-        }
-
-        async function killBotProcess() {
-          try {
-            if (process.platform === 'win32') {
-              await exec(`taskkill /f /im ${botName}.exe > nul 2>&1`);
-            } else {
-              await exec(`pkill -f "[${botName.charAt(0)}]${botName.substring(1)}" > /dev/null 2>&1`);
-            }
-          } catch (error) {
-            // 忽略输出
-          }
-        }
-        killBotProcess();
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        const args = `tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --logfile ${FILE_PATH}/boot.log --loglevel info --url http://localhost:${ARGO_PORT}`;
-        try {
-          await exec(`nohup ${botPath} ${args} >/dev/null 2>&1 &`);
-          console.log(`${botName} is running`);
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-          await extractDomains(); // 重新提取域名
-        } catch (error) {
-          console.error(`Error executing command: ${error}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error reading boot.log:', error);
-    }
   }
 }
 
